@@ -291,7 +291,7 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 logging.info("<<< %s" % data[0])
                 logging.debug("---\n<< server send [%d]:\n%s\n---" % (len(text),text))
             else:
-                self.sendResponse("480 Temporarily Unavailable")
+                self.sendResponse("480 Nedostupný")
         else:
             self.sendResponse("500 Server Internal Error")
                 
@@ -397,7 +397,6 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 #print "message %s unknown" % self.data
     
     def handle(self):
-        #socket.setdefaulttimeout(120)
         data = self.request[0].decode('utf-8')
         self.data = data.split("\r\n")
         self.socket = self.request[1]

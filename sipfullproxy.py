@@ -14,10 +14,9 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#    library source https://github.com/tirfil/PySipFullProxy
-
 import socketserver
 import re
+import string
 import socket
 #import threading
 import sys
@@ -67,10 +66,6 @@ rx_contact_expires = re.compile("expires=([^;$]*)")
 rx_expires = re.compile("^Expires: (.*)$")
 
 # global dictionnary
-global recordroute
-global topvia
-global registrar
-
 recordroute = ""
 topvia = ""
 registrar = {}

@@ -1,3 +1,4 @@
+#! /usr/bin/python3
 import sys
 import sipfullproxy
 import logging
@@ -9,10 +10,8 @@ import socketserver
 HOST, PORT = '0.0.0.0', 5060
 ipaddress = ""
 
-
 def start():
-    logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', filename='proxy.log', level=logging.INFO,
-                        datefmt='%H:%M:%S')
+    logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', filename='proxy.log', level=logging.INFO, datefmt='%H:%M:%S')
     logging.info(time.strftime("%a, %d %b %Y %H:%M:%S ", time.localtime()))
     if len(sys.argv) > 1:
         ipaddress = sys.argv[1]
@@ -27,4 +26,5 @@ def start():
     server.serve_forever()
 
 
-start()
+if __name__ == "__main__":
+    start()

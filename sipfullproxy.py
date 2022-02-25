@@ -285,7 +285,6 @@ class UDPHandler(socketserver.BaseRequestHandler):
     def processAck(self):
         destination = self.getDestination()
         if len(destination) > 0:
-            # logging.info("HOVOR PRIJATY ({} >>> {})".format(destination, self.getOrigin()))
             if destination in registrar:
                 socket, claddr = self.getSocketInfo(destination)
                 # self.changeRequestUri()
@@ -333,8 +332,10 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 socket, claddr = self.getSocketInfo(origin)
                 self.data = self.removeRouteHeader()
                 data = self.removeTopVia()
-                text = "\r\n".join(data).encode('utf-8')
-                socket.sendto(text, claddr)
+                text = "\r\n".join(data)
+                text = re.sub('Ringing', 'ZVONI',text)
+                print(text)
+                socket.sendto(text.encode('utf-8'), claddr)
                 if rx_decline.search(self.data[0]):
                     in_call.remove(self.getDestination())
                     in_call.remove(self.getOrigin())

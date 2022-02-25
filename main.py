@@ -14,7 +14,6 @@ def start():
         ipaddress = sys.argv[1]
     else:
         ipaddress = input("Enter your IP address")
-    hostname = socket.gethostname()
     sipfullproxy.init_logger()
     sipfullproxy.recordroute = "Record-Route: <sip:%s:%d;lr>" % (ipaddress, PORT)
     sipfullproxy.topvia = "Via: SIP/2.0/UDP %s:%d" % (ipaddress, PORT)

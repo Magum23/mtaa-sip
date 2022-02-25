@@ -19,6 +19,7 @@ def start():
     sipfullproxy.recordroute = "Record-Route: <sip:%s:%d;lr>" % (ipaddress, PORT)
     sipfullproxy.topvia = "Via: SIP/2.0/UDP %s:%d" % (ipaddress, PORT)
     server = socketserver.UDPServer((HOST, PORT), sipfullproxy.UDPHandler)
+    print("Server started")
     server.serve_forever()
 
 

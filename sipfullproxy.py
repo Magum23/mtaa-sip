@@ -17,9 +17,6 @@
 
 import socketserver
 import re
-import socket
-# import threading
-import sys
 import time
 import logging
 
@@ -29,7 +26,8 @@ rx_invite = re.compile("^INVITE")  # this
 rx_ack = re.compile("^ACK")  # this
 rx_prack = re.compile("^PRACK")
 rx_cancel = re.compile("^CANCEL")
-rx_decline = re.compile("^603")
+rx_decline = re.compile("^SIP/2.0 603 ([^ ]*)")
+rx_accept = re.compile("^SIP/2.0 200 ([^ ]*)")
 rx_bye = re.compile("^BYE")  # this
 rx_options = re.compile("^OPTIONS")
 rx_subscribe = re.compile("^SUBSCRIBE")
@@ -72,6 +70,7 @@ global registrar
 recordroute = ""
 topvia = ""
 registrar = {}
+in_call = []
 
 
 def hexdump(chars, sep, width):
@@ -83,10 +82,6 @@ def hexdump(chars, sep, width):
 
 def quotechars(chars):
     return ''.join(['.', c][c.isalnum()] for c in chars)
-
-
-def showtime():
-    return
 
 
 def init_logger():
@@ -207,7 +202,6 @@ class UDPHandler(socketserver.BaseRequestHandler):
         data.append("")
         text = "\r\n".join(data).encode('utf-8')
         self.socket.sendto(text, self.client_address)
-        showtime()
 
     def processRegister(self):
         fromm = ""
@@ -258,6 +252,11 @@ class UDPHandler(socketserver.BaseRequestHandler):
         registrar[fromm] = [contact, self.socket, self.client_address, validity]
         self.sendResponse("200 SUPER")
 
+    def getCallId(self):
+        if len(self.data) > 5:
+            return self.data[5]
+        return "unknown call id"
+
     def processInvite(self):
         origin = self.getOrigin()
         if len(origin) == 0 or not origin in registrar:
@@ -265,7 +264,9 @@ class UDPHandler(socketserver.BaseRequestHandler):
             return
         destination = self.getDestination()
         if len(destination) > 0:
-            logging.info("HOVOR {} >>> {}".format(self.getOrigin(), destination))
+            logging.info("HOVOR {} >>> {} ({})".format(self.getOrigin(), destination, self.getCallId()))
+            in_call.append(self.getDestination())
+            in_call.append(self.getOrigin())
             if destination in registrar and self.checkValidity(destination):
                 socket, claddr = self.getSocketInfo(destination)
                 # self.changeRequestUri()
@@ -275,7 +276,6 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 data.insert(1, recordroute)
                 text = "\r\n".join(data).encode('utf-8')
                 socket.sendto(text, claddr)
-                showtime()
             else:
                 logging.info("NEDOSTUPNY {} ( VOLAL >>> {} )".format(destination, self.getOrigin()))
                 self.sendResponse("480 NEDOSTUPNY")
@@ -285,7 +285,7 @@ class UDPHandler(socketserver.BaseRequestHandler):
     def processAck(self):
         destination = self.getDestination()
         if len(destination) > 0:
-            logging.info("HOVOR PRIJATY ({} >>> {})".format(destination, self.getOrigin()))
+            # logging.info("HOVOR PRIJATY ({} >>> {})".format(destination, self.getOrigin()))
             if destination in registrar:
                 socket, claddr = self.getSocketInfo(destination)
                 # self.changeRequestUri()
@@ -295,10 +295,8 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 data.insert(1, recordroute)
                 text = "\r\n".join(data).encode('utf-8')
                 socket.sendto(text, claddr)
-                showtime()
 
     def processNonInvite(self):
-        print(self.data[0])
         origin = self.getOrigin()
         if len(origin) == 0 or not origin in registrar:
             self.sendResponse("400 ZLA POZIADAVKA")
@@ -314,13 +312,15 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 data.insert(1, recordroute)
                 text = "\r\n".join(data).encode('utf-8')
                 if rx_bye.search(self.data[0]):
+                    in_call.remove(self.getDestination())
+                    in_call.remove(self.getOrigin())
                     logging.info("KONIEC HOVORU ( {} - {} )".format(destination, self.getOrigin()))
                 if rx_cancel.search(self.data[0]):
+                    in_call.remove(self.getDestination())
+                    in_call.remove(self.getOrigin())
                     logging.info("HOVOR ZRUSENY ( {} - {} )".format(destination, self.getOrigin()))
-                if rx_decline.search(self.data[0]):
-                    logging.info("HOVOR ODMIETNUTY ( {} - {} )".format(destination, self.getOrigin()))
+
                 socket.sendto(text, claddr)
-                showtime()
             else:
                 self.sendResponse("406 NEPRIJATELNE")
         else:
@@ -335,7 +335,13 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 data = self.removeTopVia()
                 text = "\r\n".join(data).encode('utf-8')
                 socket.sendto(text, claddr)
-                showtime()
+                if rx_decline.search(self.data[0]):
+                    in_call.remove(self.getDestination())
+                    in_call.remove(self.getOrigin())
+                    logging.info("HOVOR ODMIETNUTY ( {} - {} )".format(self.getDestination(), self.getOrigin()))
+                if rx_accept.search(self.data[0]) and self.getOrigin() in in_call and self.getDestination() in in_call:
+                    logging.info("HOVOR PRIJATY ({} >>> {})".format(self.getOrigin(), self.getDestination()))
+
 
     def processRequest(self):
         if len(self.data) > 0:
@@ -349,7 +355,6 @@ class UDPHandler(socketserver.BaseRequestHandler):
             elif rx_bye.search(request_uri):
                 self.processNonInvite()
             elif rx_cancel.search(request_uri):
-                print("cancel")
                 self.processNonInvite()
             elif rx_options.search(request_uri):
                 self.processNonInvite()
@@ -382,10 +387,8 @@ class UDPHandler(socketserver.BaseRequestHandler):
         self.socket = self.request[1]
         request_uri = self.data[0]
         if rx_request_uri.search(request_uri) or rx_code.search(request_uri):
-            showtime()
             self.processRequest()
         else:
             if len(data) > 4:
-                showtime()
                 hexdump(data, ' ', 16)
 

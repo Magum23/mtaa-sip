@@ -78,22 +78,22 @@ def hexdump( chars, sep, width ):
         line = chars[:width]
         chars = chars[width:]
         line = line.ljust( width, '\000' )
-        logging.debug("%s%s%s" % ( sep.join( "%02x" % ord(c) for c in line ),sep, quotechars( line )))
 
 def quotechars( chars ):
 	return ''.join( ['.', c][c.isalnum()] for c in chars )
 
 def showtime():
-    logging.debug(time.strftime("(%H:%M:%S)", time.localtime()))
+    return
+
+
+def init_logger():
+    logging.basicConfig(format='%(asctime)s\t%(message)s', filename='proxy.log')
+
 
 class UDPHandler(socketserver.BaseRequestHandler):
     
     def debugRegister(self):
-        logging.debug("*** REGISTRAR ***")
-        logging.debug("*****************")
-        for key in registrar.keys():
-            logging.debug("%s -> %s" % (key,registrar[key][0]))
-        logging.debug("*****************")
+        return
     
     def changeRequestUri(self):
         # change request uri
@@ -152,7 +152,6 @@ class UDPHandler(socketserver.BaseRequestHandler):
             return True
         else:
             del registrar[uri]
-            logging.warning("registration for %s has expired" % uri)
             return False
     
     def getSocketInfo(self,uri):
@@ -208,8 +207,6 @@ class UDPHandler(socketserver.BaseRequestHandler):
         text = "\r\n".join(data).encode('utf-8')
         self.socket.sendto(text,self.client_address)
         showtime()
-        logging.info("<<< %s" % data[0])
-        logging.debug("---\n<< server send [%d]:\n%s\n---" % (len(text),text))
         
     def processRegister(self):
         fromm = ""
@@ -268,7 +265,7 @@ class UDPHandler(socketserver.BaseRequestHandler):
             return
         destination = self.getDestination()
         if len(destination) > 0:
-            logging.info("Hovor od %s na %s" % destination, self.getOrigin())
+            logging.info("Hovor od na" )
             if destination in registrar and self.checkValidity(destination):
                 socket,claddr = self.getSocketInfo(destination)
                 #self.changeRequestUri()
@@ -279,10 +276,8 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 text = "\r\n".join(data).encode('utf-8')
                 socket.sendto(text , claddr)
                 showtime()
-                logging.info("<<< %s" % data[0])
-                logging.debug("---\n<< server send [%d]:\n%s\n---" % (len(text),text))
             else:
-                logging.info("NEDOSTUPNY %s (hovor od %s)" % self.getOrigin(), destination)
+                logging.info("NEDOSTUPNY (hovor od )")
                 self.sendResponse("480 Nedostupný")
         else:
             self.sendResponse("500 Server Internal Error")
@@ -290,7 +285,7 @@ class UDPHandler(socketserver.BaseRequestHandler):
     def processAck(self):
         destination = self.getDestination()
         if len(destination) > 0:
-            logging.info("Hovor prijatý (%s - %s)" % destination, self.getOrigin())
+            logging.info("Hovor prijatý")
             if destination in registrar:
                 socket,claddr = self.getSocketInfo(destination)
                 #self.changeRequestUri()
@@ -318,7 +313,7 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 data.insert(1, recordroute)
                 text = "\r\n".join(data).encode('utf-8')
                 if rx_bye.search(self.data[0]):
-                    logging.info("Ukončenie hovoru (%s - %s)", destination, self.getOrigin())
+                    logging.info("Ukončenie hovoru ()")
                 socket.sendto(text, claddr)
                 showtime()
             else:
@@ -371,9 +366,6 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 self.sendResponse("200 SUPER")
             elif rx_code.search(request_uri):
                 self.processCode()
-            else:
-                logging.error("request_uri %s" % request_uri)          
-                #print "message %s unknown" % self.data
     
     def handle(self):
         data = self.request[0].decode('utf-8')
@@ -387,3 +379,4 @@ class UDPHandler(socketserver.BaseRequestHandler):
             if len(data) > 4:
                 showtime()
                 hexdump(data,' ',16)
+

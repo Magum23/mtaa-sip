@@ -70,7 +70,7 @@ global registrar
 recordroute = ""
 topvia = ""
 registrar = {}
-in_call = []
+in_call = []    # ringing devices or devices that are trying to call
 
 
 def hexdump(chars, sep, width):
@@ -257,6 +257,12 @@ class UDPHandler(socketserver.BaseRequestHandler):
             return self.data[5]
         return "unknown call id"
 
+    def removeNotUsedRecords(self):
+        if self.getDestination() in in_call:
+            in_call.remove(self.getDestination())
+        if self.getOrigin() in in_call:
+            in_call.remove(self.getOrigin())
+
     def processInvite(self):
         origin = self.getOrigin()
         if len(origin) == 0 or not origin in registrar:
@@ -311,12 +317,10 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 data.insert(1, recordroute)
                 text = "\r\n".join(data).encode('utf-8')
                 if rx_bye.search(self.data[0]):
-                    in_call.remove(self.getDestination())
-                    in_call.remove(self.getOrigin())
+                    self.removeNotUsedRecords()
                     logging.info("KONIEC HOVORU ( {} - {} )".format(destination, self.getOrigin()))
                 if rx_cancel.search(self.data[0]):
-                    in_call.remove(self.getDestination())
-                    in_call.remove(self.getOrigin())
+                    self.removeNotUsedRecords()
                     logging.info("HOVOR ZRUSENY ( {} - {} )".format(destination, self.getOrigin()))
 
                 socket.sendto(text, claddr)
@@ -334,13 +338,12 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 data = self.removeTopVia()
                 text = "\r\n".join(data)
                 text = re.sub('Ringing', 'ZVONI',text)
-                print(text)
                 socket.sendto(text.encode('utf-8'), claddr)
                 if rx_decline.search(self.data[0]):
-                    in_call.remove(self.getDestination())
-                    in_call.remove(self.getOrigin())
+                    self.removeNotUsedRecords()
                     logging.info("HOVOR ODMIETNUTY ( {} - {} )".format(self.getDestination(), self.getOrigin()))
                 if rx_accept.search(self.data[0]) and self.getOrigin() in in_call and self.getDestination() in in_call:
+                    self.removeNotUsedRecords()
                     logging.info("HOVOR PRIJATY ({} >>> {})".format(self.getOrigin(), self.getDestination()))
 
 
@@ -379,8 +382,6 @@ class UDPHandler(socketserver.BaseRequestHandler):
                 self.processCode()
             else:
                 print(request_uri)
-            # elif rx_decline(request_uri):
-            #     self.processNonInvite()
 
     def handle(self):
         data = self.request[0].decode('utf-8')
